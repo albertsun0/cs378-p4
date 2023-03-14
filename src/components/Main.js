@@ -110,6 +110,7 @@ function Main() {
   const logout = () => {
     setUser(null);
     setTasks(null);
+    setLoginScreen(true);
   }
     
   useEffect(() => {
