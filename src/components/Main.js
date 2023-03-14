@@ -1,113 +1,180 @@
 import React, {useState, useEffect} from 'react'
-import axios from 'axios';
 
-const WEATHER_BASE_URL = "https://api.open-meteo.com/v1/forecast?";
-const WEATER_API_PARAMS = "&past_days=1&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weathercode";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword} from "firebase/auth";
 
-const SEARCH_API_URL = "https://geocoding-api.open-meteo.com/v1/search?name="
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDIaiEqTopa8RfAJdJfqedW6ShdX8rQo5k",
+  authDomain: "cs378-p4-d8ad7.firebaseapp.com",
+  databaseURL: "https://cs378-p4-d8ad7-default-rtdb.firebaseio.com",
+  projectId: "cs378-p4-d8ad7",
+  storageBucket: "cs378-p4-d8ad7.appspot.com",
+  messagingSenderId: "407554084527",
+  appId: "1:407554084527:web:b2f93844e6f9c5bf804e5a",
+  measurementId: "G-FTHCNZPBF1"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const auth = getAuth(app);
 
 function Main() {
-  const[load, setLoad] = useState(false);
-  const[weaterData, setWeatherData] = useState({});
-  const[selectedLocation, setSelectedLocation] = useState(0);
-  const[locations, setLocations] = useState([
-    {Name : "Austin", lat: 30.27, long: -97.74},
-    {Name : "Chicago", lat: 41.85003, long: -87.65005},
-    {Name : "New York", lat: 40.71427, long: -74.00597}
-  ]);
-  /*
-    location : {
-        Name: string,
-        latitude: number,
-        longitude:number,
+  const[user,setUser] = useState(null);
+  const[tasks, setTasks] = useState(null);
+  const[loginScreen, setLoginScreen] = useState(true);
+  const getData = () => {
+    //console.log(this.props.videoTime)
+    fetch(`${firebaseConfig.databaseURL + "/" + user.uid}/.json`)
+      .then((res) => {
+        console.log(res);
+        if (res.status !== 200) {
+          console.log(res.statusText);
+          // throw new Error(res.statusText);
+        } else {
+          return res.json();
+        }
+      })
+      .then((res) => {
+        if (res) {
+          console.log("getData res", res);
+          setTasks(res);
+        }
+      });
+  };
+
+  const addTask = () => { 
+    let task = document.getElementById("taskbox").value;
+    document.getElementById("taskbox").value = "";
+    if(task === ""){
+      return;
     }
-  */
-  const currentDate = new Date();
-  const month = currentDate.toLocaleString('default', { month: 'long' });
-  const day = currentDate.toLocaleString('default', { weekday: 'long' });
-  const dayNumber = currentDate.getDate();
-  const hour = currentDate.getHours();
+    const sampleDict = {
+      type: "task",
+      date: new Date(),
+      text: task,
+    };
+    return fetch(`${firebaseConfig.databaseURL + "/" + user.uid}/.json`, {
+      method: "POST",
+      body: JSON.stringify(sampleDict)
+    }).then((res) => {
+      if (res.status !== 200) {
+        console.log(res.statusText);
+        // throw new Error(res.statusText);
+      } else {
+        console.log("success");
+        getData();
+        return;
+      }
+    });
+  };
 
-  const GetWeatherData = (i) =>{
-    let item = locations[i];
-    console.log("get");
-    setLoad(false);
-    axios.get(`${WEATHER_BASE_URL}latitude=${item.lat}&longitude=${item.long}${WEATER_API_PARAMS}`).then(
-        (res) => {
-          console.log(res.data); 
-          setWeatherData(res.data);
-          setLoad(true);
-        }
-    ).catch((err) => {
-        console.log(err);
-    })
+  const createUser = () => {
+    let email = document.getElementById("username").value;
+    let password = document.getElementById("password").value;
+    createUserWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        setUser(userCredential.user);
+        console.log("logged in");
+      })
+      .catch((error) => {
+        console.log(error.code)
+        console.log(error.message);
+        alert(error.message);
+      });
   }
 
-  const add = () => {
-    let text = document.getElementById("input").value;
-    console.log(text)
-    axios.get(`${SEARCH_API_URL}${text}`).then(
-        (res) => {
-          console.log(res.data); 
-          if(!res.data.results){
-            alert(`No results found for ${text}`)
-          }
-          else{
-            let newCity = {Name: res.data.results[0].name, lat: res.data.results[0].latitude, long: res.data.results[0].longitude}
-            setLocations([...locations, newCity]);
-          }
-        }
-    ).catch((err) => {
-        console.log(err);
-    })
+  const login = () => {
+    let email = document.getElementById("username").value;
+    let password = document.getElementById("password").value;
+    signInWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        // Signed in 
+        setUser(userCredential.user);
+        console.log("logged in");
+      })
+      .catch((error) => {
+        alert(error.message);
+        console.log(error.code)
+        console.log(error.message);
+      });
   }
 
-  const selectIndex = (i) =>{
-    setSelectedLocation(i);
-    GetWeatherData(i);
+  const logout = () => {
+    setUser(null);
+    setTasks(null);
   }
-
+    
   useEffect(() => {
-    console.log("load");
-    GetWeatherData(0);
-  }, [])
+    if(user){
+      console.log('userdata', user);
+      getData();
+    }
+  }, [user])
 
-  const CtoF = (c) =>{
-    return Math.round( ((c) * 9/5 + 32));
+  if(!user){
+    if(loginScreen){
+      return (
+        <div className="w-screen h-screen bg-white text-black flex flex-col p-10 items-center justify-center">
+           <div className='w-1/3 border-gray-100 border-2 rounded shadow-lg flex flex-col p-8 space-y-4'>
+              <div className='text-4xl font-bold mb-8'>Login</div>
+              <div className='text-2xl font-bold text-gray-600'>Email</div>
+              <input type={"text"} className="text-black p-4 rounded bg-gray-200" id = "username"></input>
+              <div className='text-2xl font-bold text-gray-600'>Password</div>
+              <input type={"text"} className="text-black p-4 rounded bg-gray-200" id = "password"></input>
+              <div className='h-6'></div>
+              <button className="bg-fuchsia-100 p-4 text-2xl w-auto font-bold text-gray-700" onClick={() => login()}>Login</button>
+              <div className='text-xl underline text-fuchsia-400 cursor-pointer' onClick={() => setLoginScreen(false)}>Create Account</div>
+           </div>
+        </div>
+      )
+    }
+    else{
+      return (
+        <div className="w-screen h-screen bg-white text-black flex flex-col p-10 items-center justify-center">
+           <div className='w-1/3 border-gray-100 border-2 rounded shadow-lg flex flex-col p-8 space-y-4'>
+              <div className='text-4xl font-bold mb-8'>Create Account</div>
+              <div className='text-2xl font-bold text-gray-600'>Email</div>
+              <input type={"text"} className="text-black p-4 rounded bg-gray-200" id = "username"></input>
+              <div className='text-2xl font-bold text-gray-600'>Password</div>
+              <input type={"text"} className="text-black p-4 rounded bg-gray-200" id = "password"></input>
+              <div className='h-6'></div>
+              <button className="bg-fuchsia-100 p-4 text-2xl w-auto font-bold text-gray-700" onClick={() => createUser()}>Create Account</button>
+              <div className='text-xl underline text-fuchsia-400 cursor-pointer' onClick={() => setLoginScreen(true)}>Login</div>
+           </div>
+        </div>
+      )
+    }
+    
   }
-  
+
   return (
-    <div className="w-screen h-screen bg-zinc-900 text-white flex flex-row p-10">
-        <div className='flex flex-col p-4 space-y-2'>
-            <div className = 'text-4xl font-bold pl-2 mb-6'>Locations</div>
-            {locations.map((location, i) => {
-                return <div className={`p-2 text-2xl rounded-lg cursor-pointer
-                       hover:bg-blue-400 transition-all duration-1000 ${selectedLocation === i ? "bg-blue-600" : "bg-gray-600"}`} key={i} onClick = {() => selectIndex(i)}>{location.Name}</div>
-            })}
-        </div>
-        <div className='flex flex-grow flex-col p-4 px-8 space-y-2'>
-          <div className='flex flex-row w-full mb-4'>
-            <input type={"text"} className = "font-bold bg-gray-600 rounded-lg text-xl p-2 grow"
-              id = "input" placeholder='Search'
-            ></input>
-            <button className = "bg-blue-600 rounded-lg text-xl p-2 ml-4 px-4"
-              onClick={() => add()}
-            > + </button>
+    <div className="w-screen h-screen bg-white text-black flex flex-col p-10 md:px-60 px-4 space-y-4">
+       <div className='w-full flex flex-row py-8 justify-between'>
+          <div className='text-4xl font-bold'>To Do List</div>
+          <div className='flex flex-row items-center'>
+            <div className='text-2xl mr-4 font-bold text-gray-700'>{user.email}</div>
+            <div className='p-2 text-lg bg-fuchsia-100 rounded cursor-pointer' onClick={() => logout()}>Logout</div>
           </div>
-          <div className='text-4xl font-bold'>{`${day}, ${month} ${dayNumber}`}</div>
-          {load && <div className='text-8xl font-bold'>{`${CtoF(weaterData.hourly.temperature_2m[hour])} °F`}</div>}
-          
-          <div className='flex flex-col w-1/4'>
-            {load && weaterData.hourly.time.slice(0,24).map((time, i) => {
-              return <div className={`flex flex-row w-auto justify-between text-lg rounded-md px-2 ${hour == i ? "bg-blue-700" : ""}`}>
-                  <div className='mr-10'>{`${i%12 + 1} ${(i >= 11) & i != 23 ? "PM":"AM"}`} </div>
-                  <div>{`${CtoF(weaterData.hourly.temperature_2m[i])}°F`}</div>
-                </div>
-            })}
-            {!load && <div className='animate-pulse w-full h-[800px] bg-slate-800 rounded-lg'></div>}
+       </div>
+       <div className='w-full flex flex-row'>
+        <input type={"text"} className="text-black p-4 rounded bg-gray-200 grow mr-2" id ="taskbox"></input>
+        <button className="bg-fuchsia-100 p-4 font-xl rounded" onClick={() => addTask()}>Add Item</button>
+       </div>
+       {tasks && Object.keys(tasks).map((task, i) => {
+        return <div className='w-full p-4 border-gray-200 border-2 text-xl flex flex-row' key = {i}>
+            <div className='mr-4'>{`${i + 1}.`}</div>
+            {tasks[task].text}
           </div>
-        
-        </div>
+       })}
+       
     </div>
   )
 }
